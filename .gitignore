@@ -1,0 +1,23 @@
+# Rust
+target/
+**/target/
+**/*.rs.bk
+Cargo.lock
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# 测试输出
+*.log
+
+# 临时文件
+*.tmp
+*.temp
