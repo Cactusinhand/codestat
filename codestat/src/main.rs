@@ -1,4 +1,5 @@
 mod benchmark;
+mod cache;
 mod counter;
 mod language;
 mod mempool;
@@ -6,6 +7,7 @@ mod simd_scanner;
 mod stats;
 
 use benchmark::run_benchmark;
+use cache::IncrementalContext;
 use clap::Parser;
 use counter::count_file;
 use language::{detect_language, Language};
@@ -62,6 +64,14 @@ struct Args {
     /// Run internal benchmark
     #[arg(long)]
     benchmark: bool,
+    
+    /// Use incremental cache (speeds up subsequent runs)
+    #[arg(long)]
+    cache: bool,
+    
+    /// Force rebuild cache (ignore existing cache)
+    #[arg(long)]
+    rebuild_cache: bool,
 }
 
 fn main() {
@@ -81,9 +91,24 @@ fn main() {
         std::process::exit(1);
     }
 
+    // 获取绝对路径作为缓存根目录
+    let root_path = path.canonicalize().unwrap_or_else(|_| path.clone());
+    
+    // 初始化增量缓存上下文
+    let use_cache = args.cache || args.rebuild_cache;
+    let mut cache_ctx = if use_cache {
+        if args.rebuild_cache {
+            // 强制重建缓存
+            let _ = std::fs::remove_file(root_path.join(cache::CACHE_FILENAME));
+        }
+        Some(IncrementalContext::new(&root_path, !args.rebuild_cache))
+    } else {
+        None
+    };
+
     // 阶段 1: 收集文件
     let collect_start = Instant::now();
-    let mut files_to_analyze = collect_files(path, &args);
+    let files_to_analyze = collect_files(path, &args);
     let collect_time = collect_start.elapsed();
     
     if files_to_analyze.is_empty() {
@@ -91,55 +116,101 @@ fn main() {
         return;
     }
 
-    let total_files = files_to_analyze.len();
+    let total_files_found = files_to_analyze.len();
     
     if args.progress {
-        eprintln!("Found {} files in {:?}", total_files, collect_time);
+        eprintln!("Found {} files in {:?}", total_files_found, collect_time);
     }
 
-    // 阶段 2: 按文件大小排序，优化负载均衡
-    // 大文件和小文件交错处理，避免某些线程长时间占用
-    files_to_analyze.par_sort_unstable_by(|a, b| b.2.cmp(&a.2)); // 按大小降序
+    // 阶段 2: 检查缓存，分离出需要处理的文件
+    let mut cached_results: Vec<(PathBuf, Language, FileStats)> = Vec::new();
+    let mut files_to_process: Vec<(PathBuf, Language, u64)> = Vec::with_capacity(files_to_analyze.len());
+    
+    if let Some(ref mut ctx) = cache_ctx {
+        for (file_path, lang, size) in files_to_analyze {
+            // 尝试从缓存获取
+            if let Some((cached_lang, cached_stats)) = ctx.try_get(&file_path) {
+                cached_results.push((file_path, cached_lang, cached_stats));
+                ctx.record_hit();
+            } else {
+                files_to_process.push((file_path, lang, size));
+                ctx.record_new();
+            }
+        }
+        
+        if args.progress && !cached_results.is_empty() {
+            eprintln!(
+                "  Cache: {} hits, {} to process ({:.1}% hit rate)",
+                ctx.hits,
+                files_to_process.len(),
+                ctx.hit_rate()
+            );
+        }
+    } else {
+        files_to_process = files_to_analyze;
+    }
 
-    // 阶段 3: 处理文件
+    // 阶段 3: 按文件大小排序，优化负载均衡
+    files_to_process.par_sort_unstable_by(|a, b| b.2.cmp(&a.2));
+
+    // 阶段 4: 处理需要统计的文件
     let process_start = Instant::now();
     let errors: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(Vec::new()));
     let processed_count = Arc::new(AtomicUsize::new(0));
+    let num_to_process = files_to_process.len();
 
-    let file_results = if args.no_parallel || total_files < 100 {
-        // 小批量使用串行处理（避免并行开销）
+    let new_results = if args.no_parallel || num_to_process < 100 {
         process_sequential(
-            files_to_analyze,
+            files_to_process,
             &args,
             &errors,
             &processed_count,
-            total_files,
+            num_to_process.max(1),
         )
     } else {
-        // 大批量使用并行处理
         process_parallel(
-            files_to_analyze,
+            files_to_process,
             &args,
             &errors,
             &processed_count,
-            total_files,
+            num_to_process,
         )
     };
 
     let process_time = process_start.elapsed();
 
-    if args.progress {
-        eprintln!("\nProcessed {} files in {:?}", file_results.len(), process_time);
-    }
-
-    // 阶段 4: 聚合结果
+    // 阶段 5: 合并结果并更新缓存
     let mut total_stats = TotalStats::new();
     let mut file_details: Vec<(PathBuf, Language, FileStats)> = Vec::new();
 
-    for (path, lang, stats) in file_results {
+    // 添加缓存的结果
+    for (path, lang, stats) in cached_results {
         total_stats.add_file(lang, &stats);
         if args.files {
             file_details.push((path, lang, stats));
+        }
+    }
+
+    // 添加新处理的结果并更新缓存
+    for (path, lang, stats) in &new_results {
+        total_stats.add_file(*lang, stats);
+        if args.files {
+            file_details.push((path.clone(), *lang, stats.clone()));
+        }
+        
+        // 更新缓存
+        if let Some(ref mut ctx) = cache_ctx {
+            ctx.update(path.clone(), *lang, stats.clone());
+        }
+    }
+
+    // 保存缓存
+    if let Some(ref ctx) = cache_ctx {
+        if let Err(e) = ctx.save() {
+            eprintln!("Warning: Failed to save cache: {}", e);
+        }
+        if args.progress || args.files {
+            ctx.print_stats();
         }
     }
 
@@ -148,6 +219,15 @@ fn main() {
         Ok(mutex) => mutex.into_inner().unwrap_or_default(),
         Err(arc) => arc.lock().map(|g| g.clone()).unwrap_or_default(),
     };
+
+    if args.progress {
+        let processed = new_results.len();
+        let cached = total_files_found - processed;
+        eprintln!(
+            "\nProcessed {} files ({} cached) in {:?}",
+            processed, cached, process_time
+        );
+    }
 
     let summary = Summary::new(total_stats, elapsed_ms, errors_vec);
 
