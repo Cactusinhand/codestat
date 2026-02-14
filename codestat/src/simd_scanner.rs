@@ -33,32 +33,11 @@ pub fn count_newlines(buffer: &[u8]) -> usize {
 /// ARM NEON 加速 (128-bit)
 #[cfg(target_arch = "aarch64")]
 #[target_feature(enable = "neon")]
+#[allow(dead_code)]
 unsafe fn count_newlines_neon(buffer: &[u8]) -> usize {
-    use std::arch::aarch64::*;
-    
-    let mut count = 0usize;
-    let newline = vdupq_n_u8(b'\n');
-    
-    // 每次处理 16 字节
-    let chunks = buffer.chunks_exact(16);
-    let remainder = chunks.remainder();
-    
-    for chunk in chunks {
-        let vec = vld1q_u8(chunk.as_ptr());
-        let eq = vceqq_u8(vec, newline);
-        // 将比较结果转换为位掩码并计数
-        let mask = vaddvq_u8(eq) as usize;
-        count += mask;
-    }
-    
-    // 处理剩余字节
-    for &byte in remainder {
-        if byte == b'\n' {
-            count += 1;
-        }
-    }
-    
-    count
+    // 注意：NEON 实现需要更复杂的位操作来统计匹配数
+    // 暂时使用标量实现，未来可以优化为真正的 SIMD 实现
+    buffer.iter().filter(|&&b| b == b'\n').count()
 }
 
 /// SSE2 加速 (128-bit)
@@ -92,6 +71,7 @@ unsafe fn count_newlines_sse2(buffer: &[u8]) -> usize {
 /// AVX2 加速 (256-bit)
 #[cfg(target_arch = "x86_64")]
 #[target_feature(enable = "avx2")]
+#[allow(dead_code)]
 unsafe fn count_newlines_avx2(buffer: &[u8]) -> usize {
     use std::arch::x86_64::*;
     

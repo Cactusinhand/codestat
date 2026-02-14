@@ -1,11 +1,9 @@
-use std::fs::{self, File};
-use std::io::Write;
+use std::fs;
 use std::path::{Path, PathBuf};
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 use crate::counter::count_file;
 use crate::language::{detect_language, Language};
-use crate::stats::{FileStats, TotalStats};
 
 /// 运行内置 benchmark
 pub fn run_benchmark() {

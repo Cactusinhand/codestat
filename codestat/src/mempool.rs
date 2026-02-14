@@ -78,6 +78,7 @@ pub fn release_buffer(mut buf: Vec<u8>) {
 }
 
 /// 使用内存池读取文件
+#[allow(dead_code)]
 pub fn read_file_with_pool(path: &std::path::Path) -> std::io::Result<Vec<u8>> {
     use std::fs::File;
     use std::io::Read;
@@ -94,6 +95,7 @@ pub fn read_file_with_pool(path: &std::path::Path) -> std::io::Result<Vec<u8>> {
 
 /// 预读取优化 - 告诉操作系统我们要读取这些文件
 #[cfg(target_os = "linux")]
+#[allow(dead_code)]
 pub fn advise_sequential_read(file: &std::fs::File) {
     use std::os::unix::io::AsRawFd;
     unsafe {
@@ -107,12 +109,14 @@ pub fn advise_sequential_read(file: &std::fs::File) {
 }
 
 #[cfg(target_os = "macos")]
+#[allow(dead_code)]
 pub fn advise_sequential_read(_file: &std::fs::File) {
     // macOS 不支持 posix_fadvise
     // 可以考虑使用 fcntl(F_RDADVISE) 但需要更复杂的实现
 }
 
 #[cfg(target_os = "windows")]
+#[allow(dead_code)]
 pub fn advise_sequential_read(_file: &std::fs::File) {
     // Windows 有类似的机制，但这里简化处理
 }

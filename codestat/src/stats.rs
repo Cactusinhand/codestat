@@ -13,10 +13,12 @@ pub struct FileStats {
 }
 
 impl FileStats {
+    #[allow(dead_code)]
     pub fn new() -> Self {
         Self::default()
     }
 
+    #[allow(dead_code)]
     pub fn add(&mut self, other: &FileStats) {
         self.lines += other.lines;
         self.code_lines += other.code_lines;
@@ -96,6 +98,7 @@ impl TotalStats {
         stats
     }
 
+    #[allow(dead_code)]
     pub fn sorted_by_files(&self) -> Vec<&LanguageStats> {
         let mut stats: Vec<&LanguageStats> = self.by_language.values().collect();
         stats.sort_by(|a, b| b.files.cmp(&a.files));

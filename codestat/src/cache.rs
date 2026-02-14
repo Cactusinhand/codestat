@@ -150,6 +150,7 @@ impl Cache {
     }
 
     /// 清理不存在的文件缓存
+    #[allow(dead_code)]
     pub fn cleanup(&mut self, root_path: &Path) {
         self.entries.retain(|path, _| {
             root_path.join(path).exists()
@@ -157,6 +158,7 @@ impl Cache {
     }
 
     /// 获取缓存命中率统计
+    #[allow(dead_code)]
     pub fn hit_rate(&self, checked: usize, hits: usize) -> f64 {
         if checked == 0 {
             0.0
@@ -166,10 +168,12 @@ impl Cache {
     }
 
     /// 缓存条目数量
+    #[allow(dead_code)]
     pub fn len(&self) -> usize {
         self.entries.len()
     }
 
+    #[allow(dead_code)]
     pub fn is_empty(&self) -> bool {
         self.entries.is_empty()
     }
@@ -230,6 +234,7 @@ impl IncrementalContext {
     }
 
     /// 记录未命中
+    #[allow(dead_code)]
     pub fn record_miss(&mut self) {
         self.misses += 1;
     }
@@ -251,6 +256,7 @@ impl IncrementalContext {
     }
 
     /// 打印统计信息
+    #[allow(dead_code)]
     pub fn print_stats(&self) {
         if self.hits + self.misses > 0 {
             println!("\n  Cache Statistics:");

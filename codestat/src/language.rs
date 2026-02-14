@@ -342,6 +342,7 @@ pub fn detect_language(path: &Path) -> Language {
     Language::Unknown
 }
 
+#[allow(dead_code)]
 pub fn is_code_file(path: &Path) -> bool {
     detect_language(path) != Language::Unknown
 }

@@ -10,9 +10,6 @@ use std::path::Path;
 /// 文件大小阈值：超过此大小使用内存映射 (1MB)
 const MMAP_THRESHOLD: u64 = 1024 * 1024;
 
-/// 小文件缓冲区大小 (8KB)
-const SMALL_FILE_BUFFER: usize = 8192;
-
 pub fn count_file(path: &Path, language: Language) -> Result<FileStats, std::io::Error> {
     let metadata = std::fs::metadata(path)?;
     let file_size = metadata.len();
@@ -65,6 +62,36 @@ fn count_file_buffered(path: &Path, language: Language, file_size: u64) -> Resul
         code_lines: stats.code_lines,
         comment_lines: stats.comment_lines,
         blank_lines: stats.blank_lines,
+        bytes: file_size,
+    })
+}
+
+/// 快速模式 - 不解析注释，只统计总行数和空行
+#[allow(dead_code)]
+pub fn count_file_fast(path: &Path, _language: Language) -> Result<FileStats, std::io::Error> {
+    let metadata = std::fs::metadata(path)?;
+    let file_size = metadata.len();
+    
+    if file_size == 0 {
+        return Ok(FileStats::default());
+    }
+    
+    let (lines, blank_lines) = if file_size > MMAP_THRESHOLD {
+        let file = File::open(path)?;
+        let mmap = unsafe { Mmap::map(&file)? };
+        count_lines_fast(&mmap)
+    } else {
+        let content = std::fs::read(path)?;
+        count_lines_fast(&content)
+    };
+    
+    let code_lines = lines - blank_lines;
+    
+    Ok(FileStats {
+        lines,
+        code_lines,
+        comment_lines: 0,
+        blank_lines,
         bytes: file_size,
     })
 }
@@ -259,36 +286,8 @@ fn trim_bytes_start(bytes: &[u8]) -> &[u8] {
     &bytes[i..]
 }
 
-/// 快速模式 - 不解析注释，只统计总行数和空行
-pub fn count_file_fast(path: &Path, _language: Language) -> Result<FileStats, std::io::Error> {
-    let metadata = std::fs::metadata(path)?;
-    let file_size = metadata.len();
-    
-    if file_size == 0 {
-        return Ok(FileStats::default());
-    }
-    
-    let (lines, blank_lines) = if file_size > MMAP_THRESHOLD {
-        let file = File::open(path)?;
-        let mmap = unsafe { Mmap::map(&file)? };
-        count_lines_fast(&mmap)
-    } else {
-        let content = std::fs::read(path)?;
-        count_lines_fast(&content)
-    };
-    
-    let code_lines = lines - blank_lines;
-    
-    Ok(FileStats {
-        lines,
-        code_lines,
-        comment_lines: 0,
-        blank_lines,
-        bytes: file_size,
-    })
-}
-
 /// 快速行计数（SIMD 优化实现）
+#[allow(dead_code)]
 fn count_lines_fast(content: &[u8]) -> (usize, usize) {
     // 使用 SIMD 加速统计换行符
     let total_newlines = count_newlines(content);
@@ -336,7 +335,7 @@ mod tests {
         let result = analyze_bytes(content, Language::Rust);
         
         assert_eq!(result.lines, 9);
-        assert!(result.blank_lines >= 0);
+        assert_eq!(result.blank_lines, 0);  // 该测试内容中没有空行
         assert!(result.comment_lines >= 3);
         assert!(result.code_lines > 0);
     }
