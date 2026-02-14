@@ -157,6 +157,40 @@ codestat --follow-links .
 }
 ```
 
+## 性能 Benchmark
+
+运行内置 benchmark 测试各模块性能：
+
+```bash
+codestat --benchmark
+```
+
+### 典型测试结果 (M1 Pro)
+
+```
+【语言检测性能】
+  速度:     4,141,859 文件/秒
+  平均延迟: 241ns
+
+【不同文件大小处理】
+  1KB:    38µs   (26 MB/s)
+  10KB:   89µs   (109 MB/s)
+  100KB:  558µs  (175 MB/s)
+  1MB:    5.3ms  (189 MB/s)
+  10MB:   40ms   (250 MB/s)
+
+【语言解析性能】
+  Markdown: 33µs  (1000 lines)
+  Python:   70µs  (1000 lines)
+  Rust:     76µs  (1000 lines)
+  JavaScript: 82µs (1000 lines)
+
+【并行加速】
+  串行: 23.7ms
+  并行: 3.7ms
+  加速比: 6.38x (80% 并行效率)
+```
+
 ## 技术栈
 
 - **Rust 2024 Edition**: 最新的 Rust 语言特性

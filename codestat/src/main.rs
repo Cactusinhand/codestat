@@ -1,7 +1,9 @@
+mod benchmark;
 mod counter;
 mod language;
 mod stats;
 
+use benchmark::run_benchmark;
 use clap::Parser;
 use counter::count_file;
 use language::{detect_language, Language};
@@ -55,13 +57,20 @@ struct Args {
     #[arg(short, long)]
     progress: bool,
     
-    /// Batch size for parallel processing (smaller = less memory, larger = faster)
-    #[arg(long, default_value = "1000")]
-    batch_size: usize,
+    /// Run internal benchmark
+    #[arg(long)]
+    benchmark: bool,
 }
 
 fn main() {
     let args = Args::parse();
+
+    // Run benchmark if requested
+    if args.benchmark {
+        run_benchmark();
+        return;
+    }
+
     let start = Instant::now();
     let path = &args.path;
 
