@@ -65,11 +65,11 @@ struct Args {
     #[arg(long)]
     benchmark: bool,
     
-    /// Use incremental cache (speeds up subsequent runs)
+    /// Disable cache, force fresh full scan
     #[arg(long)]
-    cache: bool,
+    fresh: bool,
     
-    /// Force rebuild cache (ignore existing cache)
+    /// Rebuild cache (clear and rebuild from scratch)
     #[arg(long)]
     rebuild_cache: bool,
 }
@@ -94,15 +94,24 @@ fn main() {
     // 获取绝对路径作为缓存根目录
     let root_path = path.canonicalize().unwrap_or_else(|_| path.clone());
     
-    // 初始化增量缓存上下文
-    let use_cache = args.cache || args.rebuild_cache;
+    // 初始化增量缓存上下文（默认启用）
+    let use_cache = !args.fresh;
     let mut cache_ctx = if use_cache {
         if args.rebuild_cache {
             // 强制重建缓存
-            let _ = std::fs::remove_file(root_path.join(cache::CACHE_FILENAME));
+            let cache_file = root_path.join(cache::CACHE_FILENAME);
+            if cache_file.exists() {
+                let _ = std::fs::remove_file(cache_file);
+                if args.progress {
+                    eprintln!("Cache cleared, rebuilding...");
+                }
+            }
         }
         Some(IncrementalContext::new(&root_path, !args.rebuild_cache))
     } else {
+        if args.progress {
+            eprintln!("Cache disabled (--fresh), performing full scan...");
+        }
         None
     };
 
@@ -138,13 +147,20 @@ fn main() {
             }
         }
         
-        if args.progress && !cached_results.is_empty() {
-            eprintln!(
-                "  Cache: {} hits, {} to process ({:.1}% hit rate)",
-                ctx.hits,
-                files_to_process.len(),
-                ctx.hit_rate()
-            );
+        if args.progress {
+            let hit_rate = ctx.hit_rate();
+            if hit_rate == 100.0 {
+                eprintln!("  ✓ {} files cached (100%)", ctx.hits);
+            } else if hit_rate > 0.0 {
+                eprintln!(
+                    "  Cache: {} cached, {} new ({:.0}% hit)",
+                    ctx.hits,
+                    files_to_process.len(),
+                    hit_rate
+                );
+            } else {
+                eprintln!("  Building cache for {} files...", files_to_process.len());
+            }
         }
     } else {
         files_to_process = files_to_analyze;
@@ -209,9 +225,6 @@ fn main() {
         if let Err(e) = ctx.save() {
             eprintln!("Warning: Failed to save cache: {}", e);
         }
-        if args.progress || args.files {
-            ctx.print_stats();
-        }
     }
 
     let elapsed_ms = start.elapsed().as_millis() as u64;
@@ -223,10 +236,14 @@ fn main() {
     if args.progress {
         let processed = new_results.len();
         let cached = total_files_found - processed;
-        eprintln!(
-            "\nProcessed {} files ({} cached) in {:?}",
-            processed, cached, process_time
-        );
+        if cached > 0 && processed > 0 {
+            eprintln!(
+                "\n✓ {} files from cache, {} processed in {:?}",
+                cached, processed, process_time
+            );
+        } else if processed > 0 {
+            eprintln!("\nProcessed {} files in {:?}", processed, process_time);
+        }
     }
 
     let summary = Summary::new(total_stats, elapsed_ms, errors_vec);
