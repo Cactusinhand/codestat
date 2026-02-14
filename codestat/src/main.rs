@@ -1,6 +1,8 @@
 mod benchmark;
 mod counter;
 mod language;
+mod mempool;
+mod simd_scanner;
 mod stats;
 
 use benchmark::run_benchmark;

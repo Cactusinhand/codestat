@@ -1,7 +1,10 @@
 use crate::language::{CommentSyntax, Language};
+use crate::mempool::{acquire_buffer, release_buffer, open_with_advise};
+use crate::simd_scanner::{count_newlines, is_blank_line_simd};
 use crate::stats::FileStats;
 use memmap2::Mmap;
 use std::fs::File;
+use std::io::Read;
 use std::path::Path;
 
 /// 文件大小阈值：超过此大小使用内存映射 (1MB)
@@ -43,15 +46,19 @@ fn count_file_mmap(path: &Path, language: Language, file_size: u64) -> Result<Fi
     })
 }
 
-/// 使用缓冲区读取小文件（减少系统调用）
+/// 使用缓冲区读取小文件（内存池优化）
 fn count_file_buffered(path: &Path, language: Language, file_size: u64) -> Result<FileStats, std::io::Error> {
-    use std::io::Read;
+    // 使用内存池获取缓冲区
+    let mut buffer = acquire_buffer(file_size as usize);
     
-    let mut file = File::open(path)?;
-    let mut buffer = Vec::with_capacity(file_size as usize);
+    // 使用预读取提示打开文件
+    let mut file = open_with_advise(path)?;
     file.read_to_end(&mut buffer)?;
     
     let stats = analyze_bytes(&buffer, language);
+    
+    // 归还缓冲区到内存池
+    release_buffer(buffer);
     
     Ok(FileStats {
         lines: stats.lines,
@@ -110,10 +117,10 @@ fn analyze_bytes(content: &[u8], language: Language) -> AnalysisResult {
     result
 }
 
-/// 快速检查是否为空行
+/// 快速检查是否为空行（使用 SIMD）
 #[inline(always)]
 fn is_blank_line(line: &[u8]) -> bool {
-    line.iter().all(|&b| matches!(b, b' ' | b'\t' | b'\r'))
+    is_blank_line_simd(line)
 }
 
 #[derive(Debug, Default)]
@@ -281,33 +288,40 @@ pub fn count_file_fast(path: &Path, _language: Language) -> Result<FileStats, st
     })
 }
 
-/// 快速行计数（SIMD 友好实现）
+/// 快速行计数（SIMD 优化实现）
 fn count_lines_fast(content: &[u8]) -> (usize, usize) {
-    let mut lines = 0;
+    // 使用 SIMD 加速统计换行符
+    let total_newlines = count_newlines(content);
+    
+    // 快速空行检测
     let mut blank_lines = 0;
     let mut line_start = 0;
     
     for (i, &byte) in content.iter().enumerate() {
         if byte == b'\n' {
-            lines += 1;
             let line = &content[line_start..i];
-            if is_blank_line(line) {
+            if is_blank_line_simd(line) {
                 blank_lines += 1;
             }
             line_start = i + 1;
         }
     }
     
-    // 处理最后一行（如果没有以换行符结尾）
-    if line_start < content.len() || (content.last() == Some(&b'\n')) {
-        if line_start < content.len() {
-            lines += 1;
-            let line = &content[line_start..];
-            if is_blank_line(line) {
-                blank_lines += 1;
-            }
+    // 处理最后一行
+    if line_start < content.len() {
+        let line = &content[line_start..];
+        if is_blank_line_simd(line) {
+            blank_lines += 1;
         }
     }
+    
+    // 如果文件以换行符结尾，total_newlines 就是总行数
+    // 否则需要 +1
+    let lines = if content.last() == Some(&b'\n') {
+        total_newlines
+    } else {
+        total_newlines + if content.is_empty() { 0 } else { 1 }
+    };
     
     (lines, blank_lines)
 }
