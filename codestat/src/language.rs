@@ -255,7 +255,8 @@ fn get_extension_map() -> &'static HashMap<&'static str, Language> {
         m.insert("pl", Language::Perl);
         m.insert("pm", Language::Perl);
         m.insert("r", Language::R);
-        m.insert("m", Language::Matlab);
+        // .m 扩展名冲突: Objective-C 更常见，Matlab 使用文件名检测
+        // m.insert("m", Language::Matlab);  // 已移除，避免与 Objective-C 冲突
         m.insert("matlab", Language::Matlab);
         m.insert("dart", Language::Dart);
         m.insert("ex", Language::Elixir);
@@ -296,6 +297,84 @@ fn get_extension_map() -> &'static HashMap<&'static str, Language> {
         m.insert("asm", Language::Assembly);
         m.insert("s", Language::Assembly);
         m.insert("S", Language::Assembly);
+        // 前端框架
+        m.insert("vue", Language::Html);
+        m.insert("svelte", Language::Html);
+        m.insert("less", Language::Css);
+        m.insert("styl", Language::Css);
+        // C# / .NET
+        m.insert("cshtml", Language::Html);
+        m.insert("razor", Language::Html);
+        m.insert("vb", Language::Unknown);
+        // PowerShell
+        m.insert("ps1", Language::Shell);
+        m.insert("psm1", Language::Shell);
+        m.insert("psd1", Language::Shell);
+        // 构建工具
+        m.insert("gradle", Language::Groovy);
+        m.insert("ktx", Language::Kotlin);
+        // Protocol Buffers
+        m.insert("proto", Language::Unknown);
+        // GraphQL
+        m.insert("graphql", Language::Unknown);
+        m.insert("gql", Language::Unknown);
+        // JSON 变体
+        m.insert("jsonc", Language::Json);
+        // CMake
+        m.insert("cmake", Language::CMake);
+        // Nix
+        m.insert("nix", Language::Unknown);
+        // Dhall
+        m.insert("dhall", Language::Unknown);
+        // 模板引擎
+        m.insert("j2", Language::Unknown);
+        m.insert("hbs", Language::Html);
+        m.insert("handlebars", Language::Html);
+        m.insert("pug", Language::Html);
+        m.insert("jade", Language::Html);
+        // V (Vlang)
+        m.insert("v", Language::Unknown);
+        // PureScript
+        m.insert("purs", Language::Unknown);
+        // Elm
+        m.insert("elm", Language::Unknown);
+        // Verilog/SystemVerilog
+        m.insert("sv", Language::Unknown);
+        // VHDL
+        m.insert("vhd", Language::Unknown);
+        m.insert("vhdl", Language::Unknown);
+        // Isabelle
+        m.insert("thy", Language::Unknown);
+        // Julia scripts
+        m.insert("jls", Language::Julia);
+        // Godot
+        m.insert("gd", Language::Unknown);
+        // Inko
+        m.insert("inko", Language::Unknown);
+        // Nimble
+        m.insert("nimble", Language::Unknown);
+        // Solidity
+        m.insert("sol", Language::Unknown);
+        // Move
+        m.insert("move", Language::Unknown);
+        // Cairo
+        m.insert("cairo", Language::Unknown);
+        // Seed7
+        m.insert("seed7", Language::Unknown);
+        // Ada
+        m.insert("ada", Language::Unknown);
+        m.insert("adb", Language::Unknown);
+        m.insert("ads", Language::Unknown);
+        // Terraform
+        m.insert("tf", Language::Unknown);
+        m.insert("tfvars", Language::Unknown);
+        // Docker
+        m.insert("dockerignore", Language::Unknown);
+        // Git
+        m.insert("gitattributes", Language::Unknown);
+        m.insert("gitignore", Language::Unknown);
+        // Nginx
+        m.insert("conf", Language::Unknown);
         m
     })
 }
@@ -310,6 +389,7 @@ fn get_filename_map() -> &'static HashMap<&'static str, Language> {
         m.insert("rakefile", Language::Ruby);
         m.insert("cargo.toml", Language::Toml);
         m.insert("cmakeLists.txt", Language::CMake);
+        m.insert("matlab", Language::Matlab);
         m
     })
 }
