@@ -67,7 +67,7 @@ impl Language {
             Language::JavaScript => "JavaScript",
             Language::TypeScript => "TypeScript",
             Language::Java => "Java",
-            Language::C => "C",
+            Language::C => "C Header",
             Language::Cpp => "C++",
             Language::Go => "Go",
             Language::Ruby => "Ruby",
