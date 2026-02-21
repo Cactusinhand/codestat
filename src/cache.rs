@@ -253,15 +253,15 @@ impl IncrementalContext {
 
     /// 尝试从缓存获取统计结果
     pub fn try_get(&self, path: &Path) -> Option<(Language, FileStats)> {
-        let metadata = std::fs::metadata(&self.root_path.join(path)).ok()?;
+        let metadata = std::fs::metadata(self.root_path.join(path)).ok()?;
         let entry = self.cache.is_valid(path, &metadata)?;
 
-        Some((entry.language, entry.stats.clone()))
+        Some((entry.language, entry.stats))
     }
 
     /// 更新缓存
     pub fn update(&mut self, path: PathBuf, language: Language, stats: FileStats) {
-        if let Ok(metadata) = std::fs::metadata(&self.root_path.join(&path)) {
+        if let Ok(metadata) = std::fs::metadata(self.root_path.join(&path)) {
             self.cache.update(path, language, stats, &metadata);
         }
     }

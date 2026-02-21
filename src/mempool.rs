@@ -5,7 +5,7 @@ use std::sync::Mutex;
 
 // 线程本地存储的缓冲区池
 thread_local! {
-    static BUFFER_POOL: RefCell<Vec<Vec<u8>>> = RefCell::new(Vec::new());
+    static BUFFER_POOL: RefCell<Vec<Vec<u8>>> = const { RefCell::new(Vec::new()) };
 }
 
 // 全局缓冲区池（用于跨线程复用）

@@ -208,12 +208,12 @@ fn main() {
     for (path, lang, stats) in &new_results {
         total_stats.add_file(*lang, stats);
         if args.files {
-            file_details.push((path.clone(), *lang, stats.clone()));
+            file_details.push((path.clone(), *lang, *stats));
         }
 
         // 更新缓存
         if let Some(ref mut ctx) = cache_ctx {
-            ctx.update(path.clone(), *lang, stats.clone());
+            ctx.update(path.clone(), *lang, *stats);
         }
     }
 

@@ -1,6 +1,5 @@
 /// SIMD 加速的字节扫描器
 /// 使用平台特定的 SIMD 指令 (NEON on ARM, SSE/AVX on x86)
-
 /// 使用 SIMD 加速统计换行符数量
 pub fn count_newlines(buffer: &[u8]) -> usize {
     // 小文件使用普通实现（避免 SIMD 开销）
