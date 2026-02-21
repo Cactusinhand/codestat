@@ -2,9 +2,15 @@
 name = "codestat"
 version = "0.1.0"
 edition = "2024"
+rust-version = "1.78"
 authors = ["Your Name <your.email@example.com>"]
 description = "Fast and safe code statistics tool"
 license = "MIT"
+repository = "https://github.com/Cactusinhand/codestat"
+homepage = "https://github.com/Cactusinhand/codestat"
+readme = "README.md"
+keywords = ["cli", "code-statistics", "loc", "counter", "developer-tools"]
+categories = ["command-line-utilities", "development-tools"]
 
 [dependencies]
 clap = { version = "4.5", features = ["derive"] }
