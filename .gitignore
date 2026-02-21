@@ -1,8 +1,10 @@
-# Rust
+# Rust build artifacts
 target/
 **/target/
 **/*.rs.bk
-Cargo.lock
+
+# Cargo lock (keep for binaries, remove for libraries)
+# Cargo.lock
 
 # IDE
 .idea/
@@ -15,9 +17,9 @@ Cargo.lock
 .DS_Store
 Thumbs.db
 
-# 测试输出
+# Test output
 *.log
 
-# 临时文件
+# Temporary files
 *.tmp
 *.temp
