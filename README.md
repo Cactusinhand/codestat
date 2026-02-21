@@ -12,6 +12,7 @@ A fast code statistics tool written in Rust. Counts lines of code and shows lang
 - Detects 50+ programming languages
 - Respects .gitignore rules
 - Output in table, JSON, or CSV format
+- Incremental caching for faster re-runs
 
 ## Installation
 
