@@ -2,7 +2,7 @@
 name = "codestat"
 version = "0.1.0"
 edition = "2024"
-rust-version = "1.78"
+rust-version = "1.85"
 authors = ["Your Name <your.email@example.com>"]
 description = "Fast and safe code statistics tool"
 license = "MIT"
