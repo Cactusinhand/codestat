@@ -34,7 +34,7 @@ struct Args {
     format: String,
 
     /// Show files (not just languages)
-    #[arg(short, long)]
+    #[arg(short = 'F', long)]
     files: bool,
 
     /// Include hidden files

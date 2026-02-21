@@ -1,25 +1,25 @@
 # CodeStat
 
-A fast code statistics tool written in Rust. Counts lines of code and shows language distribution for Git repositories or directories.
+用 Rust 写的代码统计工具，可以统计代码行数和编程语言分布。
 
-[中文文档](./README.zh.md)
+[English Documentation](./README.md)
 
-## Features
+## 功能
 
-- Fast parallel processing using Rayon
-- Memory-safe Rust implementation
-- Counts code, comments, and blank lines separately
-- Detects 50+ programming languages
-- Respects .gitignore rules
-- Output in table, JSON, or CSV format
+- 使用 Rayon 并行处理
+- Rust 实现，内存安全
+- 分别统计代码、注释和空行
+- 支持 50 多种编程语言
+- 遵循 .gitignore 规则
+- 支持表格、JSON、CSV 三种输出格式
 
-## Installation
+## 安装
 
 ```bash
 cargo install codestat
 ```
 
-Or build from source:
+或者从源码编译：
 
 ```bash
 git clone https://github.com/Cactusinhand/codestat
@@ -27,27 +27,27 @@ cd codestat
 cargo build --release
 ```
 
-The binary will be at `target/release/codestat`.
+编译后的二进制文件在 `target/release/codestat`。
 
-## Usage
+## 用法
 
-Basic usage:
+基本用法：
 
 ```bash
-# Analyze current directory
+# 分析当前目录
 codestat
 
-# Analyze specific directory
+# 分析指定目录
 codestat /path/to/project
 
-# Analyze single file
+# 分析单个文件
 codestat src/main.rs
 ```
 
-Output formats:
+输出格式：
 
 ```bash
-# Table (default)
+# 表格（默认）
 codestat --format table .
 
 # JSON
@@ -57,34 +57,34 @@ codestat --format json .
 codestat --format csv .
 ```
 
-Options:
+选项：
 
 ```bash
-# Show per-file statistics
+# 显示每个文件的统计
 codestat -F .
 
-# Show progress
+# 显示进度
 codestat --progress .
 
-# Include hidden files
+# 包含隐藏文件
 codestat --hidden .
 
-# Filter by language
+# 只统计特定语言
 codestat --languages rust,python,go .
 
-# Exclude patterns
+# 排除特定模式
 codestat --exclude "*.test.js,*.min.css" .
 
-# Disable parallel processing (less memory)
+# 禁用并行处理（减少内存占用）
 codestat --no-parallel .
 
-# Follow symlinks
+# 跟随符号链接
 codestat --follow-links .
 ```
 
-## Example Output
+## 示例输出
 
-Table format:
+表格格式：
 
 ```
 ================================================================================
@@ -100,7 +100,7 @@ Table format:
 Statistics completed in 0.014s (857 files/s, 209071 lines/s)
 ```
 
-JSON format:
+JSON 格式：
 
 ```json
 {
@@ -147,15 +147,15 @@ JSON format:
 }
 ```
 
-## Implementation Notes
+## 实现说明
 
-Techniques used for performance:
+提升性能的技术：
 
-- **Memory mapping**: Large files use mmap to avoid copy overhead
-- **Byte-level parsing**: Works on `&[u8]` directly, no UTF-8 validation
-- **Parallel batching**: Files sorted by size for better load balancing
-- **Cached detection**: Language detection uses static HashMap with O(1) lookup
+- **内存映射**: 大文件使用 mmap，避免拷贝开销
+- **字节级解析**: 直接操作 `&[u8]`，不做 UTF-8 验证
+- **并行批处理**: 按文件大小排序，平衡负载
+- **缓存检测**: 语言检测用静态 HashMap，O(1) 查找
 
-## License
+## 许可证
 
 MIT
