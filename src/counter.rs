@@ -1,5 +1,5 @@
 use crate::language::{CommentSyntax, Language};
-use crate::mempool::{acquire_buffer, release_buffer, open_with_advise};
+use crate::mempool::{acquire_buffer, open_with_advise, release_buffer};
 use crate::simd_scanner::{count_newlines, is_blank_line_simd};
 use crate::stats::FileStats;
 use memmap2::Mmap;
@@ -13,11 +13,11 @@ const MMAP_THRESHOLD: u64 = 1024 * 1024;
 pub fn count_file(path: &Path, language: Language) -> Result<FileStats, std::io::Error> {
     let metadata = std::fs::metadata(path)?;
     let file_size = metadata.len();
-    
+
     if file_size == 0 {
         return Ok(FileStats::default());
     }
-    
+
     // 根据文件大小选择最佳读取策略
     if file_size > MMAP_THRESHOLD {
         count_file_mmap(path, language, file_size)
@@ -27,13 +27,17 @@ pub fn count_file(path: &Path, language: Language) -> Result<FileStats, std::io:
 }
 
 /// 使用内存映射读取大文件（零拷贝）
-fn count_file_mmap(path: &Path, language: Language, file_size: u64) -> Result<FileStats, std::io::Error> {
+fn count_file_mmap(
+    path: &Path,
+    language: Language,
+    file_size: u64,
+) -> Result<FileStats, std::io::Error> {
     let file = File::open(path)?;
     let mmap = unsafe { Mmap::map(&file)? };
-    
+
     // 直接操作字节切片，避免 String 转换开销
     let stats = analyze_bytes(&mmap, language);
-    
+
     Ok(FileStats {
         lines: stats.lines,
         code_lines: stats.code_lines,
@@ -44,19 +48,23 @@ fn count_file_mmap(path: &Path, language: Language, file_size: u64) -> Result<Fi
 }
 
 /// 使用缓冲区读取小文件（内存池优化）
-fn count_file_buffered(path: &Path, language: Language, file_size: u64) -> Result<FileStats, std::io::Error> {
+fn count_file_buffered(
+    path: &Path,
+    language: Language,
+    file_size: u64,
+) -> Result<FileStats, std::io::Error> {
     // 使用内存池获取缓冲区
     let mut buffer = acquire_buffer(file_size as usize);
-    
+
     // 使用预读取提示打开文件
     let mut file = open_with_advise(path)?;
     file.read_to_end(&mut buffer)?;
-    
+
     let stats = analyze_bytes(&buffer, language);
-    
+
     // 归还缓冲区到内存池
     release_buffer(buffer);
-    
+
     Ok(FileStats {
         lines: stats.lines,
         code_lines: stats.code_lines,
@@ -71,11 +79,11 @@ fn count_file_buffered(path: &Path, language: Language, file_size: u64) -> Resul
 pub fn count_file_fast(path: &Path, _language: Language) -> Result<FileStats, std::io::Error> {
     let metadata = std::fs::metadata(path)?;
     let file_size = metadata.len();
-    
+
     if file_size == 0 {
         return Ok(FileStats::default());
     }
-    
+
     let (lines, blank_lines) = if file_size > MMAP_THRESHOLD {
         let file = File::open(path)?;
         let mmap = unsafe { Mmap::map(&file)? };
@@ -84,9 +92,9 @@ pub fn count_file_fast(path: &Path, _language: Language) -> Result<FileStats, st
         let content = std::fs::read(path)?;
         count_lines_fast(&content)
     };
-    
+
     let code_lines = lines - blank_lines;
-    
+
     Ok(FileStats {
         lines,
         code_lines,
@@ -111,7 +119,7 @@ fn analyze_bytes(content: &[u8], language: Language) -> AnalysisResult {
     let mut in_block_comment = false;
     let mut i = 0;
     let len = content.len();
-    
+
     while i < len {
         // 找到行尾或文件尾
         let line_start = i;
@@ -122,16 +130,16 @@ fn analyze_bytes(content: &[u8], language: Language) -> AnalysisResult {
         if i < len && content[i] == b'\n' {
             i += 1; // 跳过换行符
         }
-        
+
         result.lines += 1;
-        
+
         // 快速检查空行（只包含空白字符）
         let line = &content[line_start..line_end];
         if is_blank_line(line) {
             result.blank_lines += 1;
             continue;
         }
-        
+
         // 分析注释和代码
         let line_stats = analyze_line_bytes(line, &syntax, &mut in_block_comment);
         if line_stats.is_comment {
@@ -140,7 +148,7 @@ fn analyze_bytes(content: &[u8], language: Language) -> AnalysisResult {
             result.code_lines += 1;
         }
     }
-    
+
     result
 }
 
@@ -161,24 +169,24 @@ fn analyze_line_bytes(line: &[u8], syntax: &CommentSyntax, in_block: &mut bool) 
     let mut stats = LineStats::default();
     let mut i = 0;
     let len = line.len();
-    
+
     // 跳过前导空白
     while i < len && matches!(line[i], b' ' | b'\t' | b'\r') {
         i += 1;
     }
-    
+
     if i >= len {
         stats.is_comment = *in_block;
         return stats;
     }
-    
+
     let remaining = &line[i..];
-    
+
     // 处理块注释
     if let (Some(block_start), Some(block_end)) = (syntax.block_start, syntax.block_end) {
         let bs = block_start.as_bytes();
         let be = block_end.as_bytes();
-        
+
         loop {
             if *in_block {
                 // 寻找块注释结束
@@ -218,10 +226,10 @@ fn analyze_line_bytes(line: &[u8], syntax: &CommentSyntax, in_block: &mut bool) 
                         stats.is_comment = false;
                         return stats;
                     }
-                    
+
                     *in_block = true;
                     i += pos + bs.len();
-                    
+
                     // 检查是否在同一行结束
                     let after = &line[i..];
                     if let Some(end_pos) = find_subsequence(after, be) {
@@ -247,7 +255,7 @@ fn analyze_line_bytes(line: &[u8], syntax: &CommentSyntax, in_block: &mut bool) 
             }
         }
     }
-    
+
     // 检查行注释
     if !*in_block {
         if let Some(lc) = syntax.line {
@@ -259,7 +267,7 @@ fn analyze_line_bytes(line: &[u8], syntax: &CommentSyntax, in_block: &mut bool) 
     } else {
         stats.is_comment = true;
     }
-    
+
     stats
 }
 
@@ -272,8 +280,10 @@ fn find_subsequence(haystack: &[u8], needle: &[u8]) -> Option<usize> {
     if haystack.len() < needle.len() {
         return None;
     }
-    
-    haystack.windows(needle.len()).position(|window| window == needle)
+
+    haystack
+        .windows(needle.len())
+        .position(|window| window == needle)
 }
 
 /// 跳过字节的前导空白
@@ -291,11 +301,11 @@ fn trim_bytes_start(bytes: &[u8]) -> &[u8] {
 fn count_lines_fast(content: &[u8]) -> (usize, usize) {
     // 使用 SIMD 加速统计换行符
     let total_newlines = count_newlines(content);
-    
+
     // 快速空行检测
     let mut blank_lines = 0;
     let mut line_start = 0;
-    
+
     for (i, &byte) in content.iter().enumerate() {
         if byte == b'\n' {
             let line = &content[line_start..i];
@@ -305,7 +315,7 @@ fn count_lines_fast(content: &[u8]) -> (usize, usize) {
             line_start = i + 1;
         }
     }
-    
+
     // 处理最后一行
     if line_start < content.len() {
         let line = &content[line_start..];
@@ -313,7 +323,7 @@ fn count_lines_fast(content: &[u8]) -> (usize, usize) {
             blank_lines += 1;
         }
     }
-    
+
     // 如果文件以换行符结尾，total_newlines 就是总行数
     // 否则需要 +1
     let lines = if content.last() == Some(&b'\n') {
@@ -321,42 +331,42 @@ fn count_lines_fast(content: &[u8]) -> (usize, usize) {
     } else {
         total_newlines + if content.is_empty() { 0 } else { 1 }
     };
-    
+
     (lines, blank_lines)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_rust_comments() {
         let content = b"// This is a line comment\nfn main() {\n    println!(\"Hello\");\n}\n/* Block comment */\n/* Multi\n   line\n   comment */\nfn test() {} // trailing comment\n";
         let result = analyze_bytes(content, Language::Rust);
-        
+
         assert_eq!(result.lines, 9);
-        assert_eq!(result.blank_lines, 0);  // 该测试内容中没有空行
+        assert_eq!(result.blank_lines, 0); // 该测试内容中没有空行
         assert!(result.comment_lines >= 3);
         assert!(result.code_lines > 0);
     }
-    
+
     #[test]
     fn test_python_comments() {
         let content = b"# This is a comment\n\ndef hello():\n    print(\"world\")  # inline comment\n\n\"\"\"\nDocstring comment\n\"\"\"\n";
         let result = analyze_bytes(content, Language::Python);
-        
+
         assert_eq!(result.lines, 8);
         assert_eq!(result.blank_lines, 2);
         assert!(result.comment_lines >= 2);
     }
-    
+
     #[test]
     fn test_empty_file() {
         let content = b"";
         let result = analyze_bytes(content, Language::Rust);
         assert_eq!(result.lines, 0);
     }
-    
+
     #[test]
     fn test_blank_lines() {
         let content = b"\n   \n\t\n\r\n";
@@ -365,7 +375,7 @@ mod tests {
         assert_eq!(result.blank_lines, 4);
         assert_eq!(result.code_lines, 0);
     }
-    
+
     #[test]
     fn test_find_subsequence() {
         assert_eq!(find_subsequence(b"hello world", b"world"), Some(6));

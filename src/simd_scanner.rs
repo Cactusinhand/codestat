@@ -7,12 +7,12 @@ pub fn count_newlines(buffer: &[u8]) -> usize {
     if buffer.len() < 128 {
         return buffer.iter().filter(|&&b| b == b'\n').count();
     }
-    
+
     #[cfg(target_arch = "aarch64")]
     {
         unsafe { count_newlines_neon(buffer) }
     }
-    
+
     #[cfg(target_arch = "x86_64")]
     {
         if is_x86_feature_detected!("avx2") {
@@ -23,7 +23,7 @@ pub fn count_newlines(buffer: &[u8]) -> usize {
             buffer.iter().filter(|&&b| b == b'\n').count()
         }
     }
-    
+
     #[cfg(not(any(target_arch = "aarch64", target_arch = "x86_64")))]
     {
         buffer.iter().filter(|&&b| b == b'\n').count()
@@ -45,26 +45,26 @@ unsafe fn count_newlines_neon(buffer: &[u8]) -> usize {
 #[target_feature(enable = "sse2")]
 unsafe fn count_newlines_sse2(buffer: &[u8]) -> usize {
     use std::arch::x86_64::*;
-    
+
     let mut count = 0usize;
     let newline = _mm_set1_epi8(b'\n' as i8);
-    
+
     let chunks = buffer.chunks_exact(16);
     let remainder = chunks.remainder();
-    
+
     for chunk in chunks {
         let vec = _mm_loadu_si128(chunk.as_ptr() as *const __m128i);
         let eq = _mm_cmpeq_epi8(vec, newline);
         let mask = _mm_movemask_epi8(eq) as u32;
         count += mask.count_ones() as usize;
     }
-    
+
     for &byte in remainder {
         if byte == b'\n' {
             count += 1;
         }
     }
-    
+
     count
 }
 
@@ -74,27 +74,27 @@ unsafe fn count_newlines_sse2(buffer: &[u8]) -> usize {
 #[allow(dead_code)]
 unsafe fn count_newlines_avx2(buffer: &[u8]) -> usize {
     use std::arch::x86_64::*;
-    
+
     let mut count = 0usize;
     let newline = _mm256_set1_epi8(b'\n' as i8);
-    
+
     let chunks = buffer.chunks_exact(32);
     let remainder = chunks.remainder();
-    
+
     for chunk in chunks {
         let vec = _mm256_loadu_si256(chunk.as_ptr() as *const __m256i);
         let eq = _mm256_cmpeq_epi8(vec, newline);
         let mask = _mm256_movemask_epi8(eq) as u32;
         count += mask.count_ones() as usize;
     }
-    
+
     // 处理剩余部分
     for &byte in remainder {
         if byte == b'\n' {
             count += 1;
         }
     }
-    
+
     count
 }
 
@@ -104,7 +104,7 @@ pub fn is_blank_line_simd(line: &[u8]) -> bool {
     if line.len() < 16 {
         return line.iter().all(|&b| matches!(b, b' ' | b'\t' | b'\r'));
     }
-    
+
     // 快速检测是否全是空白字符
     for &byte in line {
         if byte != b' ' && byte != b'\t' && byte != b'\r' {
@@ -117,19 +117,19 @@ pub fn is_blank_line_simd(line: &[u8]) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_count_newlines() {
         let data = b"line1\nline2\n\nline4\n";
         assert_eq!(count_newlines(data), 4);
-        
+
         let data2 = b"no newlines here";
         assert_eq!(count_newlines(data2), 0);
-        
+
         let data3 = b"\n\n\n";
         assert_eq!(count_newlines(data3), 3);
     }
-    
+
     #[test]
     fn test_large_buffer() {
         // 测试大 buffer 的 SIMD 路径
@@ -139,7 +139,7 @@ mod tests {
         }
         assert_eq!(count_newlines(&data), 100);
     }
-    
+
     #[test]
     fn test_is_blank_line() {
         assert!(is_blank_line_simd(b""));

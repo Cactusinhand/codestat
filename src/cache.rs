@@ -1,6 +1,5 @@
 /// 增量统计缓存系统
 /// 通过缓存文件元数据和统计结果，只处理变更的文件
-
 use crate::language::Language;
 use crate::stats::FileStats;
 use serde::{Deserialize, Serialize};
@@ -17,7 +16,9 @@ const CACHE_FILE_EXT: &str = ".json";
 /// 获取缓存文件路径（公开接口）
 pub fn get_cache_path(root_path: &Path) -> Option<PathBuf> {
     let cache_dir = dirs::cache_dir()?.join(CACHE_DIR_NAME);
-    let path_str = root_path.canonicalize().unwrap_or_else(|_| root_path.to_path_buf());
+    let path_str = root_path
+        .canonicalize()
+        .unwrap_or_else(|_| root_path.to_path_buf());
     let hash = format!("{:x}", md5::compute(path_str.to_string_lossy().as_bytes()));
     Some(cache_dir.join(format!("{}{}", hash, CACHE_FILE_EXT)))
 }
@@ -77,14 +78,16 @@ impl Cache {
     /// 获取缓存文件路径（基于项目路径的哈希）
     fn cache_path(root_path: &Path) -> Option<PathBuf> {
         let cache_dir = dirs::cache_dir()?.join(CACHE_DIR_NAME);
-        
+
         // 创建缓存目录
         if !cache_dir.exists() {
             fs::create_dir_all(&cache_dir).ok()?;
         }
-        
+
         // 使用项目路径的哈希作为缓存文件名
-        let path_str = root_path.canonicalize().unwrap_or_else(|_| root_path.to_path_buf());
+        let path_str = root_path
+            .canonicalize()
+            .unwrap_or_else(|_| root_path.to_path_buf());
         let hash = format!("{:x}", md5::compute(path_str.to_string_lossy().as_bytes()));
         Some(cache_dir.join(format!("{}{}", hash, CACHE_FILE_EXT)))
     }
@@ -116,14 +119,15 @@ impl Cache {
 
     /// 保存缓存到文件
     pub fn save(&self, root_path: &Path) -> std::io::Result<()> {
-        let cache_path = Self::cache_path(root_path)
-            .ok_or_else(|| std::io::Error::new(
+        let cache_path = Self::cache_path(root_path).ok_or_else(|| {
+            std::io::Error::new(
                 std::io::ErrorKind::NotFound,
-                "Could not determine cache directory"
-            ))?;
+                "Could not determine cache directory",
+            )
+        })?;
         let content = serde_json::to_string_pretty(self)?;
         fs::write(&cache_path, content)?;
-        
+
         // 设置文件权限（Unix）
         #[cfg(unix)]
         {
@@ -148,7 +152,7 @@ impl Cache {
         // 检查修改时间
         let mtime = metadata.modified().ok()?;
         let mtime_unix = mtime.duration_since(SystemTime::UNIX_EPOCH).ok()?.as_secs();
-        
+
         if entry.mtime != mtime_unix {
             return None;
         }
@@ -157,8 +161,15 @@ impl Cache {
     }
 
     /// 添加或更新缓存条目
-    pub fn update(&mut self, path: PathBuf, language: Language, stats: FileStats, metadata: &Metadata) {
-        let mtime = metadata.modified()
+    pub fn update(
+        &mut self,
+        path: PathBuf,
+        language: Language,
+        stats: FileStats,
+        metadata: &Metadata,
+    ) {
+        let mtime = metadata
+            .modified()
             .ok()
             .and_then(|t| t.duration_since(SystemTime::UNIX_EPOCH).ok())
             .map(|d| d.as_secs())
@@ -181,9 +192,7 @@ impl Cache {
     /// 清理不存在的文件缓存
     #[allow(dead_code)]
     pub fn cleanup(&mut self, root_path: &Path) {
-        self.entries.retain(|path, _| {
-            root_path.join(path).exists()
-        });
+        self.entries.retain(|path, _| root_path.join(path).exists());
     }
 
     /// 获取缓存命中率统计
@@ -246,7 +255,7 @@ impl IncrementalContext {
     pub fn try_get(&self, path: &Path) -> Option<(Language, FileStats)> {
         let metadata = std::fs::metadata(&self.root_path.join(path)).ok()?;
         let entry = self.cache.is_valid(path, &metadata)?;
-        
+
         Some((entry.language, entry.stats.clone()))
     }
 
@@ -311,24 +320,24 @@ mod tests {
     fn test_cache_save_load() {
         let temp_dir = tempfile::tempdir().unwrap();
         let root = temp_dir.path();
-        
+
         let mut cache = Cache::new(root);
-        
+
         // 创建测试文件
         let test_file = root.join("test.rs");
         fs::write(&test_file, "fn main() {}").unwrap();
-        
+
         let metadata = fs::metadata(&test_file).unwrap();
         cache.update(
             PathBuf::from("test.rs"),
             Language::Rust,
             FileStats::default(),
-            &metadata
+            &metadata,
         );
-        
+
         // 保存
         cache.save(root).unwrap();
-        
+
         // 加载
         let loaded = Cache::load(root).unwrap();
         assert_eq!(loaded.len(), 1);
@@ -339,12 +348,12 @@ mod tests {
     fn test_incremental_context() {
         let temp_dir = tempfile::tempdir().unwrap();
         let root = temp_dir.path();
-        
+
         fs::write(root.join("main.rs"), "fn main() {}").unwrap();
-        
+
         let ctx = IncrementalContext::new(root, false);
         assert_eq!(ctx.hit_rate(), 0.0);
-        
+
         // 新文件应该是 miss
         let result = ctx.try_get(&PathBuf::from("main.rs"));
         assert!(result.is_none());

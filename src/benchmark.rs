@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use std::time::Instant;
 
 use crate::counter::count_file;
-use crate::language::{detect_language, Language};
+use crate::language::{Language, detect_language};
 
 /// 运行内置 benchmark
 pub fn run_benchmark() {
@@ -73,10 +73,7 @@ fn bench_language_detection(_base_path: &Path) {
         "  速度:     {:.0} 文件/秒",
         test_files.len() as f64 / elapsed.as_secs_f64()
     );
-    println!(
-        "  平均延迟: {:?}",
-        elapsed / test_files.len() as u32
-    );
+    println!("  平均延迟: {:?}", elapsed / test_files.len() as u32);
     println!();
 }
 
@@ -95,7 +92,7 @@ fn bench_file_sizes(base_path: &Path) {
 
     for (name, size) in sizes {
         let file_path = create_test_file(base_path, size, Language::Rust);
-        
+
         // Warm up
         let _ = count_file(&file_path, Language::Rust);
 
@@ -107,10 +104,7 @@ fn bench_file_sizes(base_path: &Path) {
         let elapsed = start.elapsed() / runs;
 
         let throughput = size as f64 / 1024.0 / 1024.0 / elapsed.as_secs_f64();
-        println!(
-            "  {}: {:?} ({:.0} MB/s)",
-            name, elapsed, throughput
-        );
+        println!("  {}: {:?} ({:.0} MB/s)", name, elapsed, throughput);
 
         let _ = fs::remove_file(&file_path);
     }
@@ -126,8 +120,16 @@ fn bench_languages(base_path: &Path) {
         (Language::Rust, "rs", "// comment\nfn main() {}\n"),
         (Language::Python, "py", "# comment\ndef main(): pass\n"),
         (Language::Go, "go", "// comment\nfunc main() {}\n"),
-        (Language::JavaScript, "js", "// comment\nfunction main() {}\n"),
-        (Language::C, "c", "/* comment */\nint main() { return 0; }\n"),
+        (
+            Language::JavaScript,
+            "js",
+            "// comment\nfunction main() {}\n",
+        ),
+        (
+            Language::C,
+            "c",
+            "/* comment */\nint main() { return 0; }\n",
+        ),
         (Language::Markdown, "md", "# Title\n\nSome content here\n"),
     ];
 
@@ -164,14 +166,11 @@ fn bench_memory_usage(base_path: &Path) {
     println!("【测试 4】内存使用测试");
     println!("{:-<60}", "");
 
-    let sizes = vec![
-        ("10MB", 10 * 1024 * 1024),
-        ("50MB", 50 * 1024 * 1024),
-    ];
+    let sizes = vec![("10MB", 10 * 1024 * 1024), ("50MB", 50 * 1024 * 1024)];
 
     for (name, size) in sizes {
         let file_path = create_test_file(base_path, size, Language::Rust);
-        
+
         // 获取处理前的内存信息（简化版，仅显示时间）
         let start = Instant::now();
         let stats = count_file(&file_path, Language::Rust).unwrap();
@@ -260,7 +259,7 @@ fn create_test_file(base_path: &Path, size: usize, lang: Language) -> PathBuf {
     let line_size = line.len();
     let num_lines = size / line_size + 1;
     let content = line.repeat(num_lines);
-    
+
     fs::write(&file_path, content).unwrap();
     file_path
 }
@@ -269,17 +268,14 @@ fn create_test_file(base_path: &Path, size: usize, lang: Language) -> PathBuf {
 fn generate_rust_content(lines: usize) -> String {
     let mut content = String::with_capacity(lines * 50);
     content.push_str("// This is a test file\n");
-    
+
     for i in 0..lines {
         if i % 5 == 0 {
             content.push_str(&format!("// Comment line {}\n", i));
         } else if i % 7 == 0 {
             content.push('\n');
         } else {
-            content.push_str(&format!(
-                "fn function_{}() {{ println!(\"test\"); }}\n",
-                i
-            ));
+            content.push_str(&format!("fn function_{}() {{ println!(\"test\"); }}\n", i));
         }
     }
     content

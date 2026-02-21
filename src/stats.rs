@@ -109,12 +109,17 @@ impl TotalStats {
 impl fmt::Display for TotalStats {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         writeln!(f, "\n{:=<80}", "")?;
-        writeln!(f, " {:<20} {:>10} {:>10} {:>10} {:>10} {:>10}", 
-            "Language", "Files", "Lines", "Code", "Comments", "Blanks")?;
+        writeln!(
+            f,
+            " {:<20} {:>10} {:>10} {:>10} {:>10} {:>10}",
+            "Language", "Files", "Lines", "Code", "Comments", "Blanks"
+        )?;
         writeln!(f, "{:-<80}", "")?;
 
         for lang_stats in self.sorted_by_code_lines() {
-            writeln!(f, " {:<20} {:>10} {:>10} {:>10} {:>10} {:>10}",
+            writeln!(
+                f,
+                " {:<20} {:>10} {:>10} {:>10} {:>10} {:>10}",
                 lang_stats.language.as_str(),
                 lang_stats.files,
                 lang_stats.lines,
@@ -125,7 +130,9 @@ impl fmt::Display for TotalStats {
         }
 
         writeln!(f, "{:-<80}", "")?;
-        writeln!(f, " {:<20} {:>10} {:>10} {:>10} {:>10} {:>10}",
+        writeln!(
+            f,
+            " {:<20} {:>10} {:>10} {:>10} {:>10} {:>10}",
             "Total",
             self.total_files,
             self.total_lines,
@@ -157,14 +164,16 @@ impl Summary {
 
     pub fn print_summary(&self) {
         println!("{}", self.total_stats);
-        
+
         let seconds = self.elapsed_ms as f64 / 1000.0;
         let files_per_sec = self.total_stats.total_files as f64 / seconds;
         let lines_per_sec = self.total_stats.total_lines as f64 / seconds;
-        
-        println!("\n Statistics completed in {:.3}s ({:.0} files/s, {:.0} lines/s)",
-            seconds, files_per_sec, lines_per_sec);
-        
+
+        println!(
+            "\n Statistics completed in {:.3}s ({:.0} files/s, {:.0} lines/s)",
+            seconds, files_per_sec, lines_per_sec
+        );
+
         if !self.errors.is_empty() {
             println!("\n {} errors occurred:", self.errors.len());
             for (i, err) in self.errors.iter().take(5).enumerate() {

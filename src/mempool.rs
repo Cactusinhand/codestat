@@ -1,6 +1,5 @@
 /// 内存池优化 - 复用缓冲区减少内存分配
 /// 对于大量小文件，避免重复的 Vec 分配
-
 use std::cell::RefCell;
 use std::sync::Mutex;
 
@@ -19,9 +18,10 @@ pub fn acquire_buffer(min_capacity: usize) -> Vec<u8> {
     // 尝试从线程本地池获取
     let local_result = BUFFER_POOL.with(|pool| {
         let mut pool = pool.borrow_mut();
-        
+
         // 寻找足够大的缓冲区
-        pool.iter().position(|buf| buf.capacity() >= min_capacity)
+        pool.iter()
+            .position(|buf| buf.capacity() >= min_capacity)
             .map(|pos| {
                 let mut buf = pool.remove(pos);
                 buf.clear();
@@ -29,11 +29,11 @@ pub fn acquire_buffer(min_capacity: usize) -> Vec<u8> {
                 buf
             })
     });
-    
+
     if let Some(buf) = local_result {
         return buf;
     }
-    
+
     // 尝试从全局池获取
     if let Ok(mut global) = GLOBAL_POOL.lock() {
         if let Some(pos) = global.iter().position(|buf| buf.capacity() >= min_capacity) {
@@ -43,7 +43,7 @@ pub fn acquire_buffer(min_capacity: usize) -> Vec<u8> {
             return buf;
         }
     }
-    
+
     // 创建新缓冲区
     Vec::with_capacity(min_capacity)
 }
@@ -53,13 +53,13 @@ pub fn release_buffer(mut buf: Vec<u8>) {
     // 只保留大缓冲区（避免池膨胀）
     const MAX_POOL_SIZE: usize = 10;
     const MIN_BUF_SIZE: usize = 4096; // 4KB
-    
+
     if buf.capacity() < MIN_BUF_SIZE {
         return; // 直接丢弃小缓冲区
     }
-    
+
     buf.clear();
-    
+
     // 尝试归还到线程本地池
     BUFFER_POOL.with(|pool| {
         let mut pool = pool.borrow_mut();
@@ -67,7 +67,7 @@ pub fn release_buffer(mut buf: Vec<u8>) {
             pool.push(buf);
             return;
         }
-        
+
         // 本地池满了，尝试全局池
         if let Ok(mut global) = GLOBAL_POOL.lock() {
             if global.len() < MAX_POOL_SIZE * 2 {
@@ -82,14 +82,14 @@ pub fn release_buffer(mut buf: Vec<u8>) {
 pub fn read_file_with_pool(path: &std::path::Path) -> std::io::Result<Vec<u8>> {
     use std::fs::File;
     use std::io::Read;
-    
+
     let metadata = std::fs::metadata(path)?;
     let size = metadata.len() as usize;
-    
+
     let mut buffer = acquire_buffer(size);
     let mut file = File::open(path)?;
     file.read_to_end(&mut buffer)?;
-    
+
     Ok(buffer)
 }
 
@@ -137,16 +137,16 @@ pub fn open_with_advise(path: &std::path::Path) -> std::io::Result<std::fs::File
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_buffer_pool() {
         // 获取缓冲区
         let buf = acquire_buffer(1024);
         assert!(buf.capacity() >= 1024);
-        
+
         // 归还
         release_buffer(buf);
-        
+
         // 再次获取（应该从池中复用）
         let buf2 = acquire_buffer(512);
         assert!(buf2.capacity() >= 512);
