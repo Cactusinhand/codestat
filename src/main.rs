@@ -96,12 +96,14 @@ fn main() {
     
     // 初始化增量缓存上下文（默认启用）
     let use_cache = !args.fresh;
-    let cache_file_path = root_path.join(cache::CACHE_FILENAME);
+    let cache_file_path = cache::get_cache_path(&root_path);
     let mut cache_ctx = if use_cache {
         if args.rebuild_cache {
             // 强制重建缓存
-            if cache_file_path.exists() {
-                let _ = std::fs::remove_file(&cache_file_path);
+            if let Some(ref path) = cache_file_path {
+                if path.exists() {
+                    let _ = std::fs::remove_file(path);
+                }
             }
         }
         Some(IncrementalContext::new(&root_path, !args.rebuild_cache))
@@ -225,8 +227,10 @@ fn main() {
                 }
             }
             Err(e) => {
-                eprintln!("Warning: Failed to save cache to {}: {}", 
-                    cache_file_path.display(), e);
+                let path_str = cache_file_path.as_ref()
+                    .map(|p| p.display().to_string())
+                    .unwrap_or_else(|| "<unknown>".to_string());
+                eprintln!("Warning: Failed to save cache to {}: {}", path_str, e);
             }
         }
     }
@@ -251,9 +255,9 @@ fn main() {
         
         // 显示缓存信息
         if cache_created {
-            eprintln!("  Cache saved to {}", cache::CACHE_FILENAME);
+            eprintln!("  Cache saved");
         } else if args.rebuild_cache && use_cache {
-            eprintln!("  Cache rebuilt ({})", cache::CACHE_FILENAME);
+            eprintln!("  Cache rebuilt");
         }
     }
 

@@ -9,8 +9,18 @@ use std::fs::{self, Metadata};
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime};
 
-/// 缓存文件路径
-pub const CACHE_FILENAME: &str = ".codestat-cache.json";
+/// 缓存目录名称
+const CACHE_DIR_NAME: &str = "codestat";
+/// 缓存文件扩展名
+const CACHE_FILE_EXT: &str = ".json";
+
+/// 获取缓存文件路径（公开接口）
+pub fn get_cache_path(root_path: &Path) -> Option<PathBuf> {
+    let cache_dir = dirs::cache_dir()?.join(CACHE_DIR_NAME);
+    let path_str = root_path.canonicalize().unwrap_or_else(|_| root_path.to_path_buf());
+    let hash = format!("{:x}", md5::compute(path_str.to_string_lossy().as_bytes()));
+    Some(cache_dir.join(format!("{}{}", hash, CACHE_FILE_EXT)))
+}
 
 /// 缓存版本号，用于兼容性检查
 const CACHE_VERSION: u32 = 1;
@@ -64,9 +74,24 @@ impl Cache {
         }
     }
 
+    /// 获取缓存文件路径（基于项目路径的哈希）
+    fn cache_path(root_path: &Path) -> Option<PathBuf> {
+        let cache_dir = dirs::cache_dir()?.join(CACHE_DIR_NAME);
+        
+        // 创建缓存目录
+        if !cache_dir.exists() {
+            fs::create_dir_all(&cache_dir).ok()?;
+        }
+        
+        // 使用项目路径的哈希作为缓存文件名
+        let path_str = root_path.canonicalize().unwrap_or_else(|_| root_path.to_path_buf());
+        let hash = format!("{:x}", md5::compute(path_str.to_string_lossy().as_bytes()));
+        Some(cache_dir.join(format!("{}{}", hash, CACHE_FILE_EXT)))
+    }
+
     /// 从文件加载缓存
     pub fn load(root_path: &Path) -> Option<Self> {
-        let cache_path = root_path.join(CACHE_FILENAME);
+        let cache_path = Self::cache_path(root_path)?;
         if !cache_path.exists() {
             return None;
         }
@@ -91,11 +116,15 @@ impl Cache {
 
     /// 保存缓存到文件
     pub fn save(&self, root_path: &Path) -> std::io::Result<()> {
-        let cache_path = root_path.join(CACHE_FILENAME);
+        let cache_path = Self::cache_path(root_path)
+            .ok_or_else(|| std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                "Could not determine cache directory"
+            ))?;
         let content = serde_json::to_string_pretty(self)?;
         fs::write(&cache_path, content)?;
         
-        // 更新文件时间为隐藏文件（Unix）
+        // 设置文件权限（Unix）
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
